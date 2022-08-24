@@ -16,7 +16,7 @@ import (
 	"github.com/filecoin-project/storetheindex/internal/ingest"
 	"github.com/filecoin-project/storetheindex/internal/registry"
 	"github.com/gorilla/mux"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/multiformats/go-multihash"
 )
@@ -192,66 +192,6 @@ func (h *adminHandler) reloadConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 // ----- import handlers -----
-
-func (h *adminHandler) importManifest(w http.ResponseWriter, r *http.Request) {
-	// TODO: This code is the same for all import handlers.
-	// We probably can take it out to its own function to deduplicate.
-	vars := mux.Vars(r)
-	provID, ok := decodePeerID(vars["provider"], w)
-	if !ok {
-		return
-	}
-
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		log.Errorw("failed reading import cidlist request", "err", err)
-		http.Error(w, "", http.StatusBadRequest)
-		return
-	}
-
-	fileName, contextID, metadata, err := getParams(body)
-	if err != nil {
-		log.Error(err.Error())
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	file, err := os.Open(fileName)
-	if err != nil {
-		log.Errorw("Cannot open cidlist file", "err", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-	}
-	defer file.Close()
-
-	out := make(chan multihash.Multihash, importBatchSize)
-	errOut := make(chan error, 1)
-	ctx, cancel := context.WithCancel(h.ctx)
-	defer cancel()
-	go importer.ReadManifest(ctx, file, out, errOut)
-
-	value := indexer.Value{
-		ProviderID:    provID,
-		ContextID:     contextID,
-		MetadataBytes: metadata,
-	}
-	batchErr := batchIndexerEntries(importBatchSize, out, value, h.indexer)
-	err = <-batchErr
-	if err != nil {
-		log.Errorf("Error putting entries in indexer: %s", err)
-		http.Error(w, "", http.StatusInternalServerError)
-		return
-	}
-
-	err = <-errOut
-	if err != nil {
-		log.Errorw("Error reading manifest", "err", err)
-		http.Error(w, fmt.Sprintf("error reading manifest: %s", err), http.StatusBadRequest)
-		return
-	}
-
-	log.Info("Success importing")
-	w.WriteHeader(http.StatusOK)
-}
 
 func getParams(data []byte) (string, []byte, []byte, error) {
 	var params map[string][]byte

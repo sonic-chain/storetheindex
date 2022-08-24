@@ -2,14 +2,12 @@ package command
 
 import (
 	"bufio"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
 	"os"
 	"time"
 
-	agg "github.com/filecoin-project/go-dagaggregator-unixfs"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
 	"github.com/urfave/cli/v2"
@@ -35,12 +33,10 @@ func syntheticCmd(c *cli.Context) error {
 	}
 
 	switch t {
-	case "manifest":
-		return genManifest(fileName, num, size)
 	case "cidlist":
 		return genCidList(fileName, num, size)
 	}
-	return errors.New("export type not implemented, try types manifest or cidlist")
+	return errors.New("export type not implemented, try types cidlist")
 }
 
 func genCidList(fileName string, num int, size int) error {
@@ -49,14 +45,6 @@ func genCidList(fileName string, num int, size int) error {
 		return writeCidFileOfSize(fileName, size)
 	}
 	return writeCidFile(fileName, num)
-}
-
-func genManifest(fileName string, num int, size int) error {
-	fmt.Println("Generating manifest file")
-	if size != 0 {
-		return writeManifestOfSize(fileName, size)
-	}
-	return writeManifest(fileName, num)
 }
 
 type progress struct {
@@ -173,117 +161,6 @@ func writeCidFileOfSize(fileName string, size int) error {
 
 	fmt.Println("Created cidList successfully of size:", size)
 	return nil
-}
-
-// writeManifest appends new entries to existing manifest
-func writeManifest(fileName string, num int) error {
-	file, err := os.Create(fileName)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	w := bufio.NewWriter(file)
-
-	prog := newProgress(num)
-
-	var cids []cid.Cid
-	var curr, i int
-	for curr < num {
-		if i == len(cids) {
-			// Refil cids
-			cids, _ = randomCids(100)
-			i = 0
-		}
-
-		b, err := manifestEntry(cids[i])
-		if err != nil {
-			return err
-		}
-		if _, err = w.Write(b); err != nil {
-			return err
-		}
-		if _, err = w.WriteString("\n"); err != nil {
-			return err
-		}
-		i++
-		curr++
-		prog.update(curr)
-	}
-
-	if err = w.Flush(); err != nil {
-		return err
-	}
-	prog.done()
-
-	fmt.Println("Created Manifest successfully")
-	return nil
-}
-
-// writeManifestOfSize creates a manifest for certain size of CIDs
-func writeManifestOfSize(fileName string, size int) error {
-	file, err := os.Create(fileName)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	w := bufio.NewWriter(file)
-
-	prog := newProgress(size)
-
-	var cids []cid.Cid
-	var curr, i int
-	for curr < size {
-		if i == len(cids) {
-			// Refil cids
-			cids, _ = randomCids(100)
-			i = 0
-		}
-		c := cids[i]
-		i++
-		b, err := manifestEntry(c)
-		if err != nil {
-			return err
-		}
-		if _, err = w.Write(b); err != nil {
-			return err
-		}
-		if _, err = w.WriteString("\n"); err != nil {
-			return err
-		}
-		curr += len(c.Bytes())
-		prog.update(curr)
-	}
-	if err = w.Flush(); err != nil {
-		return err
-	}
-	prog.done()
-
-	fmt.Println("Created Manifest successfully")
-	return nil
-}
-
-func manifestEntry(c cid.Cid) ([]byte, error) {
-	// NOTE: We are not including ManifestPreamble and Summary,
-	// as for importing purposes we only use DagEntries. We are also
-	// not setting some of the fields because we currently don't use them
-	// for import. Set them conveniently if neccessary.
-	n := uint64(1)
-	e := agg.ManifestDagEntry{
-		RecordType: "DagAggregateEntry",
-		NodeCount:  &n,
-	}
-	switch c.Version() {
-	case 1:
-		e.DagCidV1 = c.String()
-	case 0:
-		e.DagCidV0 = c.String()
-	default:
-		return nil, errors.New("unsupported cid version")
-	}
-
-	return json.Marshal(e)
 }
 
 func randomCids(n int) ([]cid.Cid, error) {

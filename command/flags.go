@@ -249,7 +249,7 @@ var syntheticFlags = []cli.Flag{
 	fileFlag,
 	&cli.StringFlag{
 		Name:     "type",
-		Usage:    "Type of synthetic load to generate (manifest, cidlist, car)",
+		Usage:    "Type of synthetic load to generate (cidlist, car)",
 		Aliases:  []string{"t"},
 		Required: true,
 	},

@@ -56,7 +56,6 @@ func New(listen string, options ...ServerOption) (*Server, error) {
 
 	// Set protocol handlers
 	// Import routes
-	r.HandleFunc("/import/manifest/{provider}", s.importManifest).Methods(http.MethodPost)
 	r.HandleFunc("/import/cidlist/{provider}", s.importCidList).Methods(http.MethodPost)
 
 	// Admin routes
@@ -99,14 +98,6 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	log.Info("admin http server shutdown")
 	s.cancel() // stop any sync in progress
 	return s.server.Shutdown(ctx)
-}
-
-func (s *Server) importManifest(w http.ResponseWriter, r *http.Request) {
-	if s.handler == nil {
-		http.Error(w, "handler not set", http.StatusInternalServerError)
-		return
-	}
-	s.handler.importManifest(w, r)
 }
 
 func (s *Server) importCidList(w http.ResponseWriter, r *http.Request) {
