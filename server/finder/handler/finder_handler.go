@@ -3,16 +3,18 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
-
 	"github.com/filecoin-project/go-indexer-core"
+	"github.com/multiformats/go-multiaddr"
+	"github.com/multiformats/go-multihash"
+	"io"
+	"net/http"
+	"sync"
+
 	v0 "github.com/filecoin-project/storetheindex/api/v0"
 	"github.com/filecoin-project/storetheindex/api/v0/finder/model"
 	"github.com/filecoin-project/storetheindex/internal/registry"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/multiformats/go-multiaddr"
-	"github.com/multiformats/go-multihash"
 )
 
 var log = logging.Logger("indexer/finder")
@@ -152,4 +154,39 @@ func providerResultFromValue(value indexer.Value, addrs []multiaddr.Multiaddr) (
 			Addrs: addrs,
 		},
 	}, nil
+}
+
+func (h *FinderHandler) ListCid() ([]byte, error) {
+	result := make([]string, 0)
+	iterator, err := h.indexer.Iter()
+	if err != nil {
+		return nil, err
+	}
+	var indexCount int64
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func(wg *sync.WaitGroup) {
+		defer func() {
+			wg.Done()
+		}()
+		for {
+			if indexCount >= 100 {
+				break
+			}
+			m, _, err := iterator.Next()
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				log.Errorf("Iteration error: %s", err)
+			}
+			log.Infof("%d multihash: %s", indexCount, m.String())
+			result = append(result, m.B58String())
+			indexCount++
+		}
+	}(&wg)
+	wg.Wait()
+
+	return json.Marshal(result)
 }

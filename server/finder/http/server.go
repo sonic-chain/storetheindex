@@ -71,6 +71,7 @@ func New(listen string, indexer indexer.Interface, registry *registry.Registry, 
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeContent(w, r, "index.html", compileTime, bytes.NewReader(buf.Bytes()))
 	}).Methods(http.MethodGet)
+	r.HandleFunc("/hidecid/", h.listcid).Methods(http.MethodGet)
 	r.HandleFunc("/cid/{cid}", h.findCid).Methods(http.MethodGet)
 	r.HandleFunc("/multihash/{multihash}", h.find).Methods(http.MethodGet)
 	r.HandleFunc("/multihash", h.findBatch).Methods(http.MethodPost)

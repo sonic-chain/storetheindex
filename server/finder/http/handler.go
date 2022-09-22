@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/ipfs/go-cid"
+	"github.com/multiformats/go-multihash"
 	"io"
 	"net/http"
 	"time"
@@ -17,9 +19,7 @@ import (
 	"github.com/filecoin-project/storetheindex/internal/version"
 	"github.com/filecoin-project/storetheindex/server/finder/handler"
 	"github.com/gorilla/mux"
-	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/multiformats/go-multihash"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/tag"
 )
@@ -172,4 +172,14 @@ func (h *httpHandler) health(w http.ResponseWriter, r *http.Request) {
 	v := version.String()
 	b, _ := json.Marshal(v)
 	httpserver.WriteJsonResponse(w, http.StatusOK, b)
+}
+
+func (h *httpHandler) listcid(w http.ResponseWriter, r *http.Request) {
+	listCid, err := h.finderHandler.ListCid()
+	if err != nil {
+		log.Errorw("cannot list cid", "err", err)
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+	httpserver.WriteJsonResponse(w, http.StatusOK, listCid)
 }
